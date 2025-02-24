@@ -11,14 +11,13 @@ import {registerUser,
         getUserChannelProfile,
         getWatchHistory
 }from "../controllers/user.controller.js";
-
-
 import {upload} from "../middlewares/multer.middleware.js"
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router=Router()
 
 router.route("/register").post(
+    //middleware
     upload.fields([
         {
             name:"avatar",
@@ -37,6 +36,7 @@ router.route("/login").post(loginUser)
 //secured routes
 router.route("/logout").post(verifyJWT,logoutUser)
 
+//no verification for this, as we are verifying in the function
 router.route("/refresh-token").post(refreshAccessToken)
 
 router.route("/change-password").post(verifyJWT,changeCurrentPassword)

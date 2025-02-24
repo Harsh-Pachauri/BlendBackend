@@ -10,7 +10,7 @@ const userSchema = new Schema(
             unique: true,
             lowercase: true,
             trim: true, 
-            index: true
+            index: true //to help searching this field, but do not enable this property for every ite, as it affects performance
         },
         email: {
             type: String,
@@ -52,13 +52,17 @@ const userSchema = new Schema(
     }
 )
 
+//do not use ()={} in here, becuase it lacks context, but here we need context
+//so write function(next){},next is required so next middleware runs after it
 userSchema.pre("save", async function (next) {
     if(!this.isModified("password")) return next();
-
+    
+    //if password is modified then only run this 
     this.password = await bcrypt.hash(this.password, 10)
     next()
 })
 
+//creation of a custom method
 userSchema.methods.isPasswordCorrect = async function(password){
     return await bcrypt.compare(password, this.password)
 }

@@ -116,6 +116,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
+    //makes the cookies modifiable through server only
     const options = {
         httpOnly: true,
         secure: true
@@ -194,8 +195,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
         return res
             .status(200)
-            .cookies("accessToken", accessToken)
-            .cookies("refreshToken", newRefreshToken)
+            .cookie("accessToken", accessToken)
+            .cookie("refreshToken", newRefreshToken)
             .json(
 
                 new ApiResponse(
@@ -236,7 +237,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(
             200,
             req.user,
-            "Current user changes successfully"
+            "Current user fetched successfully"
         ))
 })
 
@@ -329,11 +330,11 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
     //checking username is present or not
     if (!username?.trim()) {
-        throw new ApiError(400, "Username is misssing")
+        throw new ApiError(400, "Username is missing")
     }
     const channel = await User.aggregate([
         {
-            //match rom username
+            //match row username
             $match: {
                 username: username?.toLowerCase()
             }

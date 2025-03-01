@@ -389,7 +389,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     ])
 
     if (!channel?.length) {
-        throw new ApiError(404, "Channel does not exist")
+        throw new ApiError(404, "Channel does not exists")
     }
 
     //channel is an array of objects, and this channel[0] is an object.

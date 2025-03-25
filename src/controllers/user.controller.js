@@ -1,6 +1,6 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js"
 import mongoose from "mongoose";
@@ -265,65 +265,70 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
 //before image updation delete old image
 
+
 const updateUserAvatar = asyncHandler(async (req, res) => {
-    const avatarLocalPath = req.file?.path
+    const avatarLocalPath = req.file?.path;
 
     if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is missing")
+        throw new ApiError(400, "Avatar file is missing");
     }
 
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    const user = await User.findById(req.user?._id);
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
 
+    // Extract Cloudinary public ID from the URL
+    if (user.avatar) {
+        const publicId = user.avatar.split("/").pop().split(".")[0];
+        await deleteFromCloudinary(publicId); // Delete old avatar
+    }
+
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
     if (!avatar.url) {
-        throw new ApiError(400, "Error while uploading on avatar")
+        throw new ApiError(400, "Error while uploading avatar");
     }
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                avatar: avatar.url
-            }
-        },
-        { new: true }
-    ).select("-password")
+    user.avatar = avatar.url;
+    await user.save();
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, user, "Avatar image updated successfully")
-        )
-})
+    return res.status(200).json(
+        new ApiResponse(200, user, "Avatar image updated successfully")
+    );
+});
+
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-    const coverImageLocalPath = req.file?.path
+    const coverImageLocalPath = req.file?.path;
 
     if (!coverImageLocalPath) {
-        throw new ApiError(400, "Cover file is missing")
+        throw new ApiError(400, "Cover image file is missing");
     }
 
-    const coverImage = await uploadOnCloudinary(avatarLocalPath)
+    const user = await User.findById(req.user?._id);
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
 
+    // Extract Cloudinary public ID from the URL
+    if (user.coverImage) {
+        const publicId = user.coverImage.split("/").pop().split(".")[0];
+        await deleteFromCloudinary(publicId); // Delete old cover image
+    }
+
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
     if (!coverImage.url) {
-        throw new ApiError(400, "Error while uploading on avatar")
+        throw new ApiError(400, "Error while uploading cover image");
     }
 
-    const user = await User.findByIdAndUpdate(
-        req.user?._id,
-        {
-            $set: {
-                coverImage: coverImage.url
-            }
-        },
-        { new: true }
-    ).select("-password")
+    user.coverImage = coverImage.url;
+    await user.save();
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, user, "Cover image updated successfully")
-        )
-})
+    return res.status(200).json(
+        new ApiResponse(200, user, "Cover image updated successfully")
+    );
+});
+
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
     //req.params se url access hota hai, kyunki usi ko  access karke hee toh tujhe use user ka data milega, right

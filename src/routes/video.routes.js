@@ -30,7 +30,10 @@ router.route("/:videoId").get(getVideoById);
 
 // Secure routes: Update or delete a video (Requires authentication)
 router.route("/:videoId")
-    .patch(verifyJWT, upload.single("thumbnail"), updateVideo)
+    .patch(verifyJWT,upload.fields([
+        { name: "thumbnail", maxCount: 1 }
+    ])
+    , updateVideo)
     .delete(verifyJWT, deleteVideo);
 
 // Secure route: Toggle video publish status

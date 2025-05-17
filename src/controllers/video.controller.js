@@ -110,7 +110,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 
 const getVideoById = asyncHandler(async (req, res) => {
-    
     const { videoId } = req.params;
 
     if (!videoId) {
@@ -119,18 +118,19 @@ const getVideoById = asyncHandler(async (req, res) => {
 
     // Fetch video from Video collection
     const video = await Video.findOne(
-        videoId,
+        { _id: videoId },
         {
-            videofile: 1,
+            videoFile: 1,
             thumbnail: 1,
             title: 1,
             description: 1,
             duration: 1,
             views: 1,
-            isPublished: 0, // Ensure this field is properly handled
+            isPublished: 1, // ✅ Now it's part of the inclusion list
             owner: 1
         }
     );
+    
 
     if (!video) {
         throw new ApiError(404, "Video not found.");
@@ -139,44 +139,64 @@ const getVideoById = asyncHandler(async (req, res) => {
     return res.status(200).json(
         new ApiResponse(200, video, "Video Details fetched successfully.")
     );
-
-})
+});
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
     const { title, description } = req.body;
 
-    // Find the video by ID
-    const video = await Video.findById(videoId);
-    if (!video) {
-        throw new ApiError(404, "Video not found.");
+    // Debugging - log received files
+    console.log("Request Files:", req.files);
+    
+    if (!req.files?.thumbnail) {
+        throw new ApiError(400, "Thumbnail file is required");
     }
 
-    // Update title and description if provided
+    const video = await Video.findById(videoId);
+    if (!video) throw new ApiError(404, "Video not found");
+
+    // 1. Upload new thumbnail to Cloudinary
+    const thumbnailLocalPath = req.files.thumbnail[0].path;
+    console.log("Uploading thumbnail from:", thumbnailLocalPath);
+    
+    const newThumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    if (!newThumbnail?.url) {
+        throw new ApiError(500, "Failed to upload thumbnail to Cloudinary");
+    }
+
+    // 2. Delete old thumbnail from Cloudinary if exists
+    if (video.thumbnail) {
+        try {
+            const oldThumbnailPublicId = video.thumbnail
+                .split('/')
+                .slice(-2)
+                .join('/')
+                .split('.')[0];
+                
+            await deleteFromCloudinary(oldThumbnailPublicId, "image");
+            console.log("Deleted old thumbnail from Cloudinary");
+        } catch (error) {
+            console.error("Error deleting old thumbnail:", error);
+        }
+    }
+
+    // 3. Update video with new thumbnail
+    video.thumbnail = newThumbnail.url;
     if (title) video.title = title;
     if (description) video.description = description;
 
-    // Handle thumbnail update if a new file is provided
-    if (req.files?.thumbnail) {
-        const thumbnailLocalPath = req.files.thumbnail[0]?.path;
-        if (!thumbnailLocalPath) {
-            throw new ApiError(400, "Thumbnail file is required.");
-        }
-
-        // Upload new thumbnail to Cloudinary
-        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-        if (!thumbnail || !thumbnail.url) {
-            throw new ApiError(400, "Error uploading thumbnail.");
-        }
-
-        video.thumbnail = thumbnail.url; // Update thumbnail URL
-    }
-
-    // Save updated video details
     await video.save();
 
+    // 4. Clean up local temp file
+    try {
+        fs.unlinkSync(thumbnailLocalPath);
+        console.log("Deleted local temp file:", thumbnailLocalPath);
+    } catch (error) {
+        console.error("Error deleting local file:", error);
+    }
+
     return res.status(200).json(
-        new ApiResponse(200, video, "Video updated successfully.")
+        new ApiResponse(200, video, "Video updated successfully")
     );
 });
 

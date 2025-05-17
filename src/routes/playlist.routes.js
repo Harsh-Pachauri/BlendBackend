@@ -1,36 +1,30 @@
-import { Router } from "express";
+import { Router } from 'express';
 import {
-    createPlaylist,
-    getUserPlaylists,
-    getPlaylistById,
     addVideoToPlaylist,
-    removeVideoFromPlaylist,
+    createPlaylist,
     deletePlaylist,
-    updatePlaylist
-} from "../controllers/playlist.controller.js";
-import { verifyJWT } from "../middlewares/auth.middleware.js";
+    getPlaylistById,
+    getUserPlaylists,
+    removeVideoFromPlaylist,
+    updatePlaylist,
+} from "../controllers/playlist.controller.js"
+import {verifyJWT} from "../middlewares/auth.middleware.js"
 
 const router = Router();
 
-// Create a new playlist (protected route)
-router.route("/").post(verifyJWT, createPlaylist);
+router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
 
-// Get all playlists of a user
+router.route("/").post(createPlaylist)
+
+router
+    .route("/:playlistId")
+    .get(getPlaylistById)
+    .patch(updatePlaylist)
+    .delete(deletePlaylist);
+
+router.route("/add/:videoId/:playlistId").patch(addVideoToPlaylist);
+router.route("/remove/:videoId/:playlistId").patch(removeVideoFromPlaylist);
+
 router.route("/user/:userId").get(getUserPlaylists);
 
-// Get a playlist by ID
-router.route("/:playlistId").get(getPlaylistById);
-
-// Update playlist details (protected route)
-router.route("/:playlistId").patch(verifyJWT, updatePlaylist);
-
-// Delete a playlist (protected route)
-router.route("/:playlistId").delete(verifyJWT, deletePlaylist);
-
-// Add a video to a playlist (protected route)
-router.route("/:playlistId/video/:videoId").post(verifyJWT, addVideoToPlaylist);
-
-// Remove a video from a playlist (protected route)
-router.route("/:playlistId/video/:videoId").delete(verifyJWT, removeVideoFromPlaylist);
-
-export default router;
+export default router

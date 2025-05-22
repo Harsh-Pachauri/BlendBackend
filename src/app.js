@@ -36,4 +36,4 @@ app.use("/api/v1/videos",videoRouter)
 app.use("/api/v1/playlists",playlistRouter)
 app.use("/api/v1/subscriptions",subscriptionRouter)
 
-export {app}
+export default app;

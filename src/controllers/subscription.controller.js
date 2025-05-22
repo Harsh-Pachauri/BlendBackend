@@ -7,7 +7,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
     const { channelId } = req.params;
-    const { userId } = req.user; // Assuming userId is coming from authentication middleware
+    const { userId } = req.params;
+    console.log('abdfd')
+    console.log(userId)
 
     if (!isValidObjectId(channelId)) {
         throw new ApiError(400, "Invalid channel ID");
@@ -17,44 +19,37 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid user ID");
     }
 
-    // Check if subscription already exists
     const existingSubscription = await Subscription.findOne({ channel: channelId, subscriber: userId });
 
     if (existingSubscription) {
-        // Unsubscribe if already subscribed
         await Subscription.findByIdAndDelete(existingSubscription._id);
         return res.status(200).json(new ApiResponse(200, null, "Unsubscribed successfully."));
     } else {
-        // Subscribe if not already subscribed
         const newSubscription = await Subscription.create({ channel: channelId, subscriber: userId });
-        return res.status(200).json(new ApiResponse(200, newSubscription, "Subscribed successfully."));
+        return res.status(201).json(new ApiResponse(201, newSubscription, "Subscribed successfully."));
     }
 });
 
-// Controller to return the subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     const { channelId } = req.params;
 
-    if (!channelId?.trim()) {
-        throw new ApiError(400, "Channel ID is missing");
+    if (!isValidObjectId(channelId)) {
+        throw new ApiError(400, "Invalid channel ID");
     }
 
-    const subList = await Subscription.find({ channel: channelId }).populate("subscriber", "username email");
-
-    res.status(200).json(new ApiResponse(200, subList, "Subscriber list fetched successfully."));
+    const subscribers = await Subscription.find({ channel: channelId }).populate("subscriber", "username email");
+    res.status(200).json(new ApiResponse(200, subscribers, "Subscriber list fetched successfully."));
 });
 
-// Controller to return the channel list to which a user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
     const { subscriberId } = req.params;
 
-    if (!subscriberId?.trim()) {
-        throw new ApiError(400, "Subscriber ID is missing");
+    if (!isValidObjectId(subscriberId)) {
+        throw new ApiError(400, "Invalid subscriber ID");
     }
 
-    const subdList = await Subscription.find({ subscriber: subscriberId }).populate("channel", "name");
-
-    res.status(200).json(new ApiResponse(200, subdList, "Subscribed list fetched successfully."));
+    const subscribedChannels = await Subscription.find({ subscriber: subscriberId }).populate("channel", "name");
+    res.status(200).json(new ApiResponse(200, subscribedChannels, "Subscribed list fetched successfully."));
 });
 
 export {

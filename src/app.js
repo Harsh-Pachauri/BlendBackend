@@ -21,11 +21,16 @@ app.use(cookieParser())
 //routes import
 import userRouter from './routes/user.routes.js'
 import videoRouter from './routes/video.routes.js'
+import tweetRouter from './routes/tweet.routes.js'
+import playlistRouter from './routes/playlist.routes.js'
+import subscriptionRouter from './routes/subscription.routes.js'
 
 //we earlier used app.get becuase earlier we had routes and controllers together
 // but now they are in different files so that is why we use app.use
 //routes declaration
 app.use("/api/v1/users",userRouter)
 app.use("/api/v1/videos",videoRouter)
+app.use("/api/v1/playlists",playlistRouter)
+app.use("/api/v1/subscriptions",subscriptionRouter)
 
 export {app}

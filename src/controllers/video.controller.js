@@ -116,21 +116,10 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video ID is missing");
     }
 
-    // Fetch video from Video collection
-    const video = await Video.findOne(
-        { _id: videoId },
-        {
-            videoFile: 1,
-            thumbnail: 1,
-            title: 1,
-            description: 1,
-            duration: 1,
-            views: 1,
-            isPublished: 1, // ✅ Now it's part of the inclusion list
-            owner: 1
-        }
-    );
-    
+    // Fetch video with populated owner details
+    const video = await Video.findById(videoId)
+        .select("videoFile thumbnail title description duration views isPublished owner")
+        .populate("owner", "_id username avatar email subscribers createdAt"); // You can add/remove fields
 
     if (!video) {
         throw new ApiError(404, "Video not found.");
@@ -140,6 +129,7 @@ const getVideoById = asyncHandler(async (req, res) => {
         new ApiResponse(200, video, "Video Details fetched successfully.")
     );
 });
+
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
@@ -245,8 +235,6 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     return res.status(200).json(
         new ApiResponse(200,video.isPublished,"Video status changed successfully.")
     );
-
-
 
 })
 

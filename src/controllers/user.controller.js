@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js"
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js"
+import { Video } from "../models/video.model.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 
@@ -121,7 +122,8 @@ const loginUser = asyncHandler(async (req, res) => {
     //makes the cookies modifiable through server only
     const options = {
         httpOnly: true,
-        secure: true
+        secure: true,
+        sameSite: "None", // explicitly allow cross-site cookies
     }
 
     return res
@@ -244,25 +246,30 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 })
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
-    const { fullName, email } = req.body
+    const { fullName, email } = req.body;
     if (!fullName || !email) {
-        throw new ApiError(400, "All fields are required")
+        throw new ApiError(400, "All fields are required");
     }
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                fullName: fullName,
-                email: email
-            }
+                fullName,
+                email,
+            },
         },
         { new: true }
-    ).select("-password")
+    ).select("-password -refreshToken");
 
-    return res
-        .status(200)
-        .json(new ApiResponse(200, user, "Account details updated successfully"))
-})
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, user, "Account details updated successfully")
+    );
+});
+
 
 //before image updation delete old image
 
@@ -332,22 +339,19 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-    //req.params se url access hota hai, kyunki usi ko  access karke hee toh tujhe use user ka data milega, right
-    const { username } = req.params
+    const { username } = req.params;
 
-    //checking username is present or not
     if (!username?.trim()) {
-        throw new ApiError(400, "Username is missing")
+        throw new ApiError(400, "Username is missing");
     }
+
     const channel = await User.aggregate([
         {
-            //match row username
             $match: {
-                username: username?.toLowerCase()
+                username: username.toLowerCase()
             }
         },
         {
-            // from subscriptions model
             $lookup: {
                 from: "subscriptions",
                 localField: "_id",
@@ -356,7 +360,6 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
             }
         },
         {
-            //those whom i have subscribed
             $lookup: {
                 from: "subscriptions",
                 localField: "_id",
@@ -366,12 +369,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             $addFields: {
-                subscribersCount: {
-                    $size: "$subscribers"
-                },
-                channelsSubscribedToCount: {
-                    $size: "$subscribedTo"
-                },
+                subscribersCount: { $size: "$subscribers" },
+                channelsSubscribedToCount: { $size: "$subscribedTo" },
                 isSubscribed: {
                     $cond: {
                         if: { $in: [req.user?._id, "$subscribers.subscriber"] },
@@ -393,19 +392,26 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
                 email: 1
             }
         }
-    ])
+    ]);
 
     if (!channel?.length) {
-        throw new ApiError(404, "Channel does not exists")
+        throw new ApiError(404, "Channel does not exist");
     }
 
-    //channel is an array of objects, and this channel[0] is an object.
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, channel[0], "User channel fetched successfully.")
-        )
-})
+    // Get user videos
+    const userId = channel[0]._id;
+    const userVideos = await Video.find({ owner: userId, isPublished: true })
+        .sort({ createdAt: -1 })
+        .select("title thumbnail views createdAt _id owner");
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            channel: channel[0],
+            videos: userVideos
+        }, "User channel with videos fetched successfully.")
+    );
+});
+
 
 const getWatchHistory = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
